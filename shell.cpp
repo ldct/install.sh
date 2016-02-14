@@ -12,15 +12,17 @@
 #include <string.h>
 #include <string>
 #include <iostream>
+#include <sstream>
+#include <vector>
 
 using namespace std;
 
 /*
   Function Declarations for builtin shell commands:
  */
-int lsh_cd(char **args);
-int lsh_help(char **args);
-int lsh_exit(char **args);
+int lsh_cd(vector<string>);
+int lsh_help(vector<string>);
+int lsh_exit(vector<string>);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -31,14 +33,14 @@ char *builtin_str[] = {
   "exit"
 };
 
-int (*builtin_func[]) (char **) = {
+int (*builtin_func[]) (vector<string>) = {
   &lsh_cd,
   &lsh_help,
   &lsh_exit
 };
 
 int lsh_num_builtins() {
-  return sizeof(builtin_str) / sizeof(char *);
+  return 3;
 }
 
 /*
@@ -50,14 +52,13 @@ int lsh_num_builtins() {
    @param args List of args.  args[0] is "cd".  args[1] is the directory.
    @return Always returns 1, to continue executing.
  */
-int lsh_cd(char **args)
-{
-  if (args[1] == NULL) {
-    fprintf(stderr, "lsh: expected argument to \"cd\"\n");
-  } else {
-    if (chdir(args[1]) != 0) {
-      perror("lsh");
-    }
+int lsh_cd(vector<string> args) {
+
+  if (args.size() == 1) {
+    cerr << "lsh: expected argument to \"cd\"" << endl;
+  }
+  if (chdir(args[1].c_str()) != 0) {
+    perror("lsh");
   }
   return 1;
 }
@@ -67,7 +68,7 @@ int lsh_cd(char **args)
    @param args List of args.  Not examined.
    @return Always returns 1, to continue executing.
  */
-int lsh_help(char **args)
+int lsh_help(vector<string> args)
 {
   int i;
   printf("Stephen Brennan's LSH\n");
@@ -87,7 +88,7 @@ int lsh_help(char **args)
    @param args List of args.  Not examined.
    @return Always returns 0, to terminate execution.
  */
-int lsh_exit(char **args)
+int lsh_exit(vector<string> args)
 {
   return 0;
 }
@@ -97,15 +98,21 @@ int lsh_exit(char **args)
   @param args Null terminated list of arguments (including program).
   @return Always returns 1, to continue execution.
  */
-int lsh_launch(char **args)
-{
+int lsh_launch(vector<string> args) {
   pid_t pid;
   int status;
+
+  vector<char*> _args;
+
+  for (int i=0; i<args.size(); i++) {
+    _args.push_back(const_cast<char*>(args[i].c_str()));
+  }
+  _args.push_back(NULL);
 
   pid = fork();
   if (pid == 0) {
     // Child process
-    if (execvp(args[0], args) == -1) {
+    if (execvp(_args[0], &_args[0]) == -1) {
       perror("lsh");
     }
     exit(EXIT_FAILURE);
@@ -127,17 +134,15 @@ int lsh_launch(char **args)
    @param args Null terminated list of arguments.
    @return 1 if the shell should continue running, 0 if it should terminate
  */
-int lsh_execute(char **args)
-{
-  int i;
+int lsh_execute(vector<string> args) {
 
-  if (args[0] == NULL) {
+  if (args.size() == 0) {
     // An empty command was entered.
     return 1;
   }
 
-  for (i = 0; i < lsh_num_builtins(); i++) {
-    if (strcmp(args[0], builtin_str[i]) == 0) {
+  for (int i = 0; i < lsh_num_builtins(); i++) {
+    if (strcmp(args[0].c_str(), builtin_str[i]) == 0) {
       return (*builtin_func[i])(args);
     }
   }
@@ -145,65 +150,34 @@ int lsh_execute(char **args)
   return lsh_launch(args);
 }
 
-#define LSH_RL_BUFSIZE 1024
 /**
    @brief Read a line of input from stdin.
    @return The line from stdin.
- */
-char *lsh_read_line(void)
-{
-
+*/
+string lsh_read_line(void) {
   string line;
-
   getline(cin, line);
-  char* ret = (char*) malloc((line.size() + 1) * sizeof(char));
-
-  for (int i=0; i<line.size(); i++) {
-    ret[i] = line[i];
-  }
-  ret[line.size()] = '\0';
-
-  return ret;
+  return line;
 }
 
-#define LSH_TOK_BUFSIZE 64
-#define LSH_TOK_DELIM " \t\r\n\a"
+const int LSH_TOK_BUFSIZE = 64;
+const char* LSH_TOK_DELIM = " \t\r\n\a"; // note there is a space here
 /**
    @brief Split a line into tokens (very naively).
    @param line The line.
    @return Null-terminated array of tokens.
  */
-char **lsh_split_line(char *line)
-{
-  int bufsize = LSH_TOK_BUFSIZE, position = 0;
-  char **tokens = (char**) malloc(bufsize * sizeof(char*));
-  char *token, **tokens_backup;
+vector<string> lsh_split_line(string __line) {
 
-  if (!tokens) {
-    fprintf(stderr, "lsh: allocation error\n");
-    exit(EXIT_FAILURE);
+  vector<string> ret;
+  string token;
+  istringstream ss(__line);
+
+  while (getline(ss, token, ' ')) {
+    ret.push_back(token);
   }
 
-  token = strtok(line, LSH_TOK_DELIM);
-  while (token != NULL) {
-    tokens[position] = token;
-    position++;
-
-    if (position >= bufsize) {
-      bufsize += LSH_TOK_BUFSIZE;
-      tokens_backup = tokens;
-      tokens = (char**) realloc(tokens, bufsize * sizeof(char*));
-      if (!tokens) {
-		free(tokens_backup);
-        fprintf(stderr, "lsh: allocation error\n");
-        exit(EXIT_FAILURE);
-      }
-    }
-
-    token = strtok(NULL, LSH_TOK_DELIM);
-  }
-  tokens[position] = NULL;
-  return tokens;
+  return ret;
 }
 
 /**
@@ -211,18 +185,16 @@ char **lsh_split_line(char *line)
  */
 void lsh_loop(void)
 {
-  char *line;
-  char **args;
+  string line;
+  vector<string> args;
   int status;
 
   do {
-    printf("> ");
+    cout << "> ";
     line = lsh_read_line();
     args = lsh_split_line(line);
     status = lsh_execute(args);
 
-    free(line);
-    free(args);
   } while (status);
 }
 
