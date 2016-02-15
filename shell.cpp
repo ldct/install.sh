@@ -207,6 +207,8 @@ void lsh_loop(void)
 void lsh_fromfile(string filename) {
   cout << "executing from file " << filename << endl;
 
+  vector<string> args;
+
   ifstream infile(filename);
   string line;
   while (getline(infile, line)) {
