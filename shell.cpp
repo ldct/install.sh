@@ -183,7 +183,13 @@ vector<string> lsh_split_line(string __line) {
 
 /**
    @brief Loop getting input and executing it.
- */
+  
+  lsh_read_line()
+  |> lsh_split_line()
+  |> lsh_execute()
+
+*/
+
 void lsh_loop(void)
 {
   string line;
@@ -195,7 +201,6 @@ void lsh_loop(void)
     line = lsh_read_line();
     args = lsh_split_line(line);
     status = lsh_execute(args);
-
   } while (status);
 }
 
@@ -206,6 +211,8 @@ void lsh_fromfile(string filename) {
   string line;
   while (getline(infile, line)) {
       cout << "executing line " << line << endl;
+      args = lsh_split_line(line);
+      status = lsh_execute(args);
   }
 
   return;
