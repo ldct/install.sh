@@ -14,6 +14,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <fstream>
 
 using namespace std;
 
@@ -198,6 +199,18 @@ void lsh_loop(void)
   } while (status);
 }
 
+void lsh_fromfile(string filename) {
+  cout << "executing from file " << filename << endl;
+
+  ifstream infile(filename);
+  string line;
+  while (getline(infile, line)) {
+      cout << "executing line " << line << endl;
+  }
+
+  return;
+}
+
 /**
    @brief Main entry point.
    @param argc Argument count.
@@ -206,12 +219,12 @@ void lsh_loop(void)
  */
 int main(int argc, char **argv)
 {
-  // Load config files, if any.
 
-  // Run command loop.
-  lsh_loop();
-
-  // Perform any shutdown/cleanup.
+  if (argc == 1) {
+    lsh_loop();    
+  } else {
+    lsh_fromfile(string(argv[1]));
+  }
 
   return EXIT_SUCCESS;
 }

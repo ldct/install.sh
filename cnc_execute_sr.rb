@@ -2,6 +2,8 @@
 
 require 'json'
 
+$stdout.sync = true
+
 TOKEN = File.read("DIGITAL_OCEAN_TOKEN")
 
 if TOKEN.length < 5
@@ -21,14 +23,23 @@ puts "new droplet created, id: #{droplet_id}"
 while true
 	droplet_details = JSON.parse(`curl -sSX GET -H "Content-Type: application/json" -H "Authorization: Bearer #{TOKEN}" "https://api.digitalocean.com/v2/droplets/#{droplet_id}"`)
 	droplet_status = droplet_details["droplet"]["status"]
-	puts droplet_status
+	if droplet_status == "new"
+		print "."
+	end
 	if droplet_status == "active"
 		droplet_ip = droplet_details["droplet"]["networks"]["v4"][0]["ip_address"]
 		break
 	end
 end
 
+puts ""
 puts "new droplet ready, ip: #{droplet_ip}"
+sleep(5)
 puts "running ssh"
 
 `ssh -o "StrictHostKeyChecking no" root@#{droplet_ip} "apt-get update; apt-get install --assume-yes git build-essential; git clone https://github.com/zodiac/install.sh.git; cd install.sh; ./make"`
+
+puts "done, deleting droplet"
+`curl -sSX DELETE -H "Content-Type: application/json" -H "Authorization: Bearer #{TOKEN}" "https://api.digitalocean.com/v2/droplets/#{droplet_id}" -I`
+
+
